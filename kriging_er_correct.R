@@ -2,11 +2,13 @@
 # model data: 2t in Kelvins, Rh 0-1
 # obs: 2t in Celsius, Rh 0-100
 # 
+# library(devtools)
 # install_github("harphub/Rgrib2")
 library('Rgrib2')
 library('httr')
 library('sp')
 library('fastgrid')
+library('rgeos')
 source('gridding.R') # subroutines
 source('smartmet_obs.R') # obs fetch from smartmet server
 
