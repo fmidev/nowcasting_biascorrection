@@ -4,28 +4,26 @@
 # 
 # install_github("harphub/Rgrib2")
 library('Rgrib2')
-source('/data/hietal/error_correction/gridding.R') # subroutines
-source('/data/hietal/error_correction/smartmet_obs.R') # obs fetch from smartmet server
+library('httr')
+library('sp')
+library('fastgrid')
+source('gridding.R') # subroutines
+source('smartmet_obs.R') # obs fetch from smartmet server
 
 # read obs station list used in error correction from csv.file (subset of MOS station list)
-stlist <- read.csv("/data/hietal/error_correction/MNWCstlist.csv")
+stlist <- read.csv("MNWCstlist.csv")
 
-# error weights for forecast hours 2h,3h,4h,5h
-#weights <- data.frame('2t' = c(0.9,0.9,0.8,0.7),
-#                  'rh' = c(0.9,0.8,0.7,0.7),
-#                  'ws' = c(0.8,0.7,0.6,0.6)
-#)
 # grib parameterNumber to map the parameter 
 grib_paramnb <- data.frame('parname'=c('2t','rh','ws'),'parnumb'=c(0,192,1),'obs_parm'=c('TA_PT1M_AVG','RH_PT1M_AVG','WS_PT10M_AVG'),'w1'=c(0.9,0.9,0.8),'w2'=c(0.9,0.8,0.7),'w3'=c(0.8,0.7,0.6),'w4'=c(0.7,0.7,0.6),stringsAsFactors=FALSE)
 
-#g_in <- '/data/hietal/error_correction/smnwc-T-K.grib2' # temperature test dataset  
-#g_in <- '/data/hietal/error_correction/smnwc-RH-0TO1.grib2' # relative humidity test dataset
-g_in <- '/data/hietal/error_correction/smnwc-FF-MS.grib2' # wind speed test dataset
+#g_in <- 'smnwc-T-K.grib2' # temperature test dataset  
+#g_in <- 'error_correction/smnwc-RH-0TO1.grib2' # relative humidity test dataset
+g_in <- 'smnwc-FF-MS.grib2' # wind speed test dataset
 
 # correlation length km
 clen <- 50 
 # land sea mask used
-LSM <- readRDS('/data/hietal/error_correction/MEPS_lsm_sea.Rds') # only sea (+Vänern and Wettern)
+LSM <- readRDS('MEPS_lsm_sea.Rds') # only sea (+Vänern and Wettern)
 coordnames(LSM) <- c('longitude','latitude') # needed for gridding (should be fixed!)
 
 # Forecast leadtimes 15min/1h (depends on the data) steps in Metcoop nowcast
@@ -90,12 +88,12 @@ fc.mod <- qcheck(var.pred$VAR1,param,grib_paramnb)
 # plot corrected field
 # var.pred$VAR1 <- fc.mod
 # MOSplotting::MOS_plot_field(var.pred,layer = "VAR1", shapetrans = TRUE,cmin=min(out$VAR1), cmax = max(out$VAR1),
-#                             stations = obsx,main=paste(fc_hours[1], 'clen =',clen,'km'),pngfile=paste("/data/hietal/error_correction/kuvat/mod_",m,".png",sep=""))
+#                             stations = obsx,main=paste(fc_hours[1], 'clen =',clen,'km'),pngfile=paste("mod_",m,".png",sep=""))
 
 # create grib with first modified field
 # g_out needs to have name that separates corrected grib files for different parameters automatically
 # g_out should have some grib 
-g_out <- paste('/data/hietal/error_correction/',grib_paramnb$parname[par.row],'_fix.grib2',sep="")
+g_out <- paste(grib_paramnb$parname[par.row],'_fix.grib2',sep="")
 savegrib(g_in,g_out,msg = m, newdata = fc.mod, append=FALSE)
 
 # now add the 1h correction to 2h,3h,4h and 5h
@@ -114,7 +112,7 @@ for (m in 1:(length(msgs)-1)) {
 # out2$diff <- out2$mod - out2$VAR1 # difference to original
 
 # MOSplotting::MOS_plot_field(out2,layer = "mod", shapetrans = TRUE,cmin=min(out2$VAR1), cmax = max(out2$VAR1),
-#                            stations = obsx,main=paste(fc_hours[2], 'clen =',clen,'km'),pngfile="/data/hietal/error_correction/testi.png")
+#                            stations = obsx,main=paste(fc_hours[2], 'clen =',clen,'km'),pngfile="testi.png")
 # erotus
 # MOSplotting::MOS_plot_field(out2,layer = "diff", shapetrans = TRUE,cmin=-10, cmax = +10,
 #                            stations = obsx,main=paste(fc_hours[2], 'clen =',clen,'km'))
