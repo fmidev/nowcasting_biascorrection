@@ -12,7 +12,7 @@ Rscript kriging_er_correct.R input.grib2 output.grib2
 marko.laine@fmi.fi leila.hieta@fmi.fi
 
 ## Known issues, features and development ideas
-* Stationlist should be replaced by "keyword". Stationlist should be relatively easily modified
+* Keyword "snwc" used to fetch obs data from smartmet server (station list ErrCorrectStations.csv)   
 * Just SYNOP-stations used for error correction 
 * Code could take the current time into account and not relay on just model information for times
 * Output data is used as input data for nowcasting_fcst
