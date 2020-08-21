@@ -28,7 +28,8 @@ param <- getfcparam(g_in) # t2m=0,rh=192,ws=1
 par.row <- which(grib_paramnb$parnumb==param)
 
 # read obs station list used in error correction from csv.file (subset of MOS station list)
-stlist <- read.csv("ErrCorrectStations.csv") #1192 SYNOP only stations
+# stlist <- read.csv("ErrCorrectStations.csv") #1192 SYNOP only stations
+# keyword for smartmet server obs retrieval: snwc includes the stations in ErrCorrectStations.csv
 
 # Use this if time is set based on sys.time 
 # # define lates full hour in UTC (the time error is calculated from)
@@ -70,21 +71,10 @@ coordnames(out) <- c('longitude','latitude') # needed for gridding
 # define corresponding obs parameter name for smartmet server
 obs_param <- grib_paramnb$obs_parm[par.row]
 
-# obs from smartmet server -> replace by keyword etc ASAP
-# fmisid numbers as character, have to use loop for fetching the data since ~400fmisid/url is the max
-# will be replaced by keyword
-fmisid <- paste(stlist$fmisid[1:400], sep="", collapse=",")
-obs <- readobs_all(t1,t1,fmisid,obs_param,spatial = TRUE)
-#for(i in 1:2){
-i <- 1
-fmisid <- paste(stlist$fmisid[(i*400+1):((i+1)*400)], sep="", collapse=",")
-tmp_obs <- readobs_all(t1,t1,fmisid,obs_param,spatial = TRUE)
-obs <- rbind(obs,tmp_obs)
-#}
-fmisid <- paste(stlist$fmisid[(2*400+1):nrow(stlist)], sep="", collapse=",")
-tmp_obs <- readobs_all(t1,t1,fmisid,obs_param,spatial = TRUE)
-obs <- rbind(obs,tmp_obs)
-rm(tmp_obs)
+# obs from smartmet server 
+# keyword: mnwc
+obs <- readobs_all(t1,t1,obs_param,spatial = TRUE)
+
 # prepare obs
 obsx <- obs_prepare(obs,t1,raster::extent(out), LSM)
 

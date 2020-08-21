@@ -5,7 +5,7 @@
 library('httr')
 
 # Read observations from smartmet server
-readobs <- function(starttime, endtime, fmisid, parname,
+readobs <- function(starttime, endtime, parname,
   parameters = c('name','fmisid','latitude','longitude','time'),
   query = list(),
   spatial=FALSE) {
@@ -21,8 +21,7 @@ readobs <- function(starttime, endtime, fmisid, parname,
     tz='gmt',
     starttime=format(as.POSIXct(starttime),'%Y%m%d%H%M'),
     endtime=format(as.POSIXct(endtime),'%Y%m%d%H%M'),
-    #keyword='synop_fi',
-    fmisid=fmisid,
+    keyword='snwc',
     timestep='1h',
     precision='full',
     #param=paste(parameters,parname,collapse=I(','),sep=''),
@@ -56,13 +55,13 @@ readobs <- function(starttime, endtime, fmisid, parname,
 }
 
 # return Finnish and foreign and road weather stations
-readobs_all <- function(starttime, endtime=NULL, fmisid, parname,
+readobs_all <- function(starttime, endtime=NULL, parname,
                         parameters = c('name','fmisid','latitude','longitude','time'),
                         spatial=FALSE) {
   if (is.null(endtime))
     endtime <- starttime
-  obs1 <- readobs(starttime, endtime, fmisid, parname, parameters = parameters, spatial = spatial)
-  obs2 <- readobs(starttime, endtime, fmisid, parname,
+  obs1 <- readobs(starttime, endtime, parname, parameters = parameters, spatial = spatial)
+  obs2 <- readobs(starttime, endtime, parname,
                  query=list(producer='foreign'),
                  parameters = parameters, spatial = spatial)
   #obs3 <- readobs(starttime, endtime, fmisid, parname,  # road weather station
