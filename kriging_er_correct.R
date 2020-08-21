@@ -12,15 +12,39 @@ library('rgeos')
 source('gridding.R') # subroutines
 source('smartmet_obs.R') # obs fetch from smartmet server
 
-# read obs station list used in error correction from csv.file (subset of MOS station list)
-stlist <- read.csv("MNWCstlist.csv")
+args = commandArgs(trailingOnly=TRUE)
+#args[1] = input-file
+#args[2] = output-file
 
-# grib parameterNumber to map the parameter 
+g_in <- args[1]
+g_out <- args[2]
+
+# data.frame to map grib input-file parameterNumber to corresponding smartmet server OBS name and error weights 
 grib_paramnb <- data.frame('parname'=c('2t','rh','ws'),'parnumb'=c(0,192,1),'obs_parm'=c('TA_PT1M_AVG','RH_PT1M_AVG','WS_PT10M_AVG'),'w1'=c(0.9,0.9,0.8),'w2'=c(0.9,0.8,0.7),'w3'=c(0.8,0.7,0.6),'w4'=c(0.7,0.7,0.6),stringsAsFactors=FALSE)
 
-#g_in <- 'smnwc-T-K.grib2' # temperature test dataset  
-#g_in <- 'error_correction/smnwc-RH-0TO1.grib2' # relative humidity test dataset
-g_in <- 'smnwc-FF-MS.grib2' # wind speed test dataset
+# get the parameter based on grib-input parameterNumber
+param <- getfcparam(g_in) # t2m=0,rh=192,ws=1
+# select the row with extra info needed for correct parameter
+par.row <- which(grib_paramnb$parnumb==param)
+
+# read obs station list used in error correction from csv.file (subset of MOS station list)
+stlist <- read.csv("ErrCorrectStations.csv") #1192 SYNOP only stations
+
+# Use this if time is set based on sys.time 
+# # define lates full hour in UTC (the time error is calculated from)
+# #local.time <- Sys.time()
+# local.time <- as.POSIXct('2020-07-28 13:00:00 UTC') # use this for test data! 
+# attr(local.time, "tzone") <- "UTC"
+# current.hour <- round(as.POSIXct(local.time, format="%H:%M:%S", tz="UTC"), units="hours")
+# rm(local.time)
+# fc_hours <- current.hour + c(0,1,2,3,4)*60*60
+
+# for test data
+# g_in <- 'smnwc-T-K.grib2' # temperature test dataset  
+# g_in <- 'smnwc-RH-0TO1.grib2' # relative humidity test dataset
+# g_in <- 'smnwc-FF-MS.grib2' # wind speed test dataset
+# get the grib parameterNumber
+# param <- getfcparam(g_in) # t2m=0,rh=192,ws=1
 
 # correlation length km
 clen <- 50 
@@ -29,12 +53,7 @@ LSM <- readRDS('MEPS_lsm_sea.Rds') # only sea (+Vänern and Wettern)
 coordnames(LSM) <- c('longitude','latitude') # needed for gridding (should be fixed!)
 
 # Forecast leadtimes 15min/1h (depends on the data) steps in Metcoop nowcast
-mtimes <- getfcdates(g_in) # in grib files times <10 with 3 numbers, check how works at 00:00 --> 0!
-
-# get the grib parameterNumber
-param <- getfcparam(g_in) # t2m=0,rh=192,ws=1
-# select the row with extra info needed for correct parameter
-par.row <- which(grib_paramnb$parnumb==param)
+mtimes <- getfcdates(g_in) # in grib files times <10 with 3 numbers, this function works also when 00:00 --> 0!
 
 atime <- mtimes[1] # analysis times
 fc_hours <- atime + c(1,2,3,4,5)*60*60 # 1h,2h,3h,4h,5h
@@ -53,14 +72,16 @@ obs_param <- grib_paramnb$obs_parm[par.row]
 
 # obs from smartmet server -> replace by keyword etc ASAP
 # fmisid numbers as character, have to use loop for fetching the data since ~400fmisid/url is the max
+# will be replaced by keyword
 fmisid <- paste(stlist$fmisid[1:400], sep="", collapse=",")
 obs <- readobs_all(t1,t1,fmisid,obs_param,spatial = TRUE)
-for(i in 1:3){
-  fmisid <- paste(stlist$fmisid[(i*400+1):((i+1)*400)], sep="", collapse=",")
-  tmp_obs <- readobs_all(t1,t1,fmisid,obs_param,spatial = TRUE)
-  obs <- rbind(obs,tmp_obs)
-}
-fmisid <- paste(stlist$fmisid[(4*400+1):nrow(stlist)], sep="", collapse=",")
+#for(i in 1:2){
+i <- 1
+fmisid <- paste(stlist$fmisid[(i*400+1):((i+1)*400)], sep="", collapse=",")
+tmp_obs <- readobs_all(t1,t1,fmisid,obs_param,spatial = TRUE)
+obs <- rbind(obs,tmp_obs)
+#}
+fmisid <- paste(stlist$fmisid[(2*400+1):nrow(stlist)], sep="", collapse=",")
 tmp_obs <- readobs_all(t1,t1,fmisid,obs_param,spatial = TRUE)
 obs <- rbind(obs,tmp_obs)
 rm(tmp_obs)
@@ -87,15 +108,14 @@ fcerr <- var.pred$diff  # error correction
 # ws<0-->0
 fc.mod <- qcheck(var.pred$VAR1,param,grib_paramnb)
 
-# plot corrected field
+# plot corrected & diff field 
 # var.pred$VAR1 <- fc.mod
 # MOSplotting::MOS_plot_field(var.pred,layer = "VAR1", shapetrans = TRUE,cmin=min(out$VAR1), cmax = max(out$VAR1),
+#                              stations = obsx,main=paste(fc_hours[1], 'clen =',clen,'km'),pngfile=paste("mod_",m,".png",sep=""))
+# 
+# MOSplotting::MOS_plot_field(var.pred,layer = "diff", shapetrans = TRUE,cmin=min(var.pred$diff), cmax = max(var.pred$diff),
 #                             stations = obsx,main=paste(fc_hours[1], 'clen =',clen,'km'),pngfile=paste("mod_",m,".png",sep=""))
 
-# create grib with first modified field
-# g_out needs to have name that separates corrected grib files for different parameters automatically
-# g_out should have some grib 
-g_out <- paste(grib_paramnb$parname[par.row],'_fix.grib2',sep="")
 savegrib(g_in,g_out,msg = m, newdata = fc.mod, append=FALSE)
 
 # now add the 1h correction to 2h,3h,4h and 5h
@@ -112,10 +132,10 @@ for (m in 1:(length(msgs)-1)) {
 # extra plotting
 # out2$mod <- fc.mod2 # corrected forecast
 # out2$diff <- out2$mod - out2$VAR1 # difference to original
-
+# 
 # MOSplotting::MOS_plot_field(out2,layer = "mod", shapetrans = TRUE,cmin=min(out2$VAR1), cmax = max(out2$VAR1),
 #                            stations = obsx,main=paste(fc_hours[2], 'clen =',clen,'km'),pngfile="testi.png")
-# erotus
-# MOSplotting::MOS_plot_field(out2,layer = "diff", shapetrans = TRUE,cmin=-10, cmax = +10,
+# 
+# MOSplotting::MOS_plot_field(out2,layer = "diff", shapetrans = TRUE,cmin=min(out2$diff), cmax = max(out2$diff),
 #                            stations = obsx,main=paste(fc_hours[2], 'clen =',clen,'km'))
 

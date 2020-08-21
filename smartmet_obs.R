@@ -1,7 +1,6 @@
 # fetch obs from smartmet server
-# Used in kriging_test2.R error correction of short range MNWC forecast
 # Station_list defined by fmisid numbers
-# The first guess station_list is MOS station_list
+# The first guess station_list is MOS station_list, only SYNOP stations
 
 library('httr')
 
@@ -66,10 +65,11 @@ readobs_all <- function(starttime, endtime=NULL, fmisid, parname,
   obs2 <- readobs(starttime, endtime, fmisid, parname,
                  query=list(producer='foreign'),
                  parameters = parameters, spatial = spatial)
-  obs3 <- readobs(starttime, endtime, fmisid, parname,
-                  query=list(producer='road'),
-                  parameters = parameters, spatial = spatial)
-  tmp_list <- list(obs1,obs2,obs3)
+  #obs3 <- readobs(starttime, endtime, fmisid, parname,  # road weather station
+  #                query=list(producer='road'),
+  #                parameters = parameters, spatial = spatial)
+  #tmp_list <- list(obs1,obs2,obs3)
+  tmp_list <- list(obs1,obs2)
   tmp_list <- tmp_list[lengths(tmp_list) != 0]
   #joku = tmp_list[-which(sapply(tmp_list, is.null))]
   #tmp_list=tmp_list[-(which(sapply(tmp_list,is.null),arr.ind=TRUE))] #remove NULL

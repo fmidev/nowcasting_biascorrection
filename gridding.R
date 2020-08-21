@@ -83,13 +83,15 @@ readgrib <- function(f1,msg=1,gcrs=crs.lambert,ocrs=crs.lonlat) {
 }
 
 # copy msg from gin to gout and replace data with newdata
+#Gmod(gh,data=newdata,IntPar=list(centre=89,productDefinitionTemplateNumber=0))
 savegrib <- function(gin,gout,msg=1,newdata=NULL,append=FALSE) {
   g <- Gopen(gin) # open the original grib file
   gh <- Ghandle(g,msg)
   if (!is.null(newdata)) {
     dim(newdata) <- c(g$Nx[msg],g$Ny[msg]) # reshape
     newdata <- newdata[,dim(newdata)[2]:1] # swap column order
-    Gmod(gh,data=newdata) # replace grib data with new
+    Gmod(gh,data=newdata,IntPar=list(centre=86,productDefinitionTemplateNumber=70,generatingProcessIdentifier=204)) # replace grib data with new
+    # Modify grib meta-data generatingProcessIndentifier=204 is "MNWC Himan" producer 
   }
   Gwrite(gh,filename = gout, append = append) # save to file
   GhandleFree(gh)
