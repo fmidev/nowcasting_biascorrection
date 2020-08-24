@@ -44,4 +44,7 @@ RUN mkdir /nowcasting_biascorrection
 ADD . /nowcasting_biascorrection
 
 WORKDIR /nowcasting_biascorrection
+
+RUN chmod o+rw /nowcasting_biascorrection # allow writes in strict environments
+
 CMD Rscript ./kriging_er_correct.R $INPUT $OUTPUT
