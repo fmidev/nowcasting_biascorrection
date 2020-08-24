@@ -8,6 +8,35 @@ Rscript kriging_er_correct.R input.grib2 output.grib2
 * output.grib2 has forecasts times 1,2,3,4,5h, does not include the analysis time 0h!
 * Run time of ~20min past recommended to include sufficient amount of observations  
 
+## Running in a container
+
+Build container image:
+
+```
+docker build -t nowcasting_biascorrection .
+```
+
+Give input and output files as variables to container.
+
+```
+docker run --rm \
+    -e INPUT=s3://.../in.grib2 \
+    -e OUTPUT=s3://.../out.grib2 \
+    -t nowcasting_biascorrection:latest
+```
+
+Local files can also be used instead of S3-based files. In this case it's useful to mount a host directory
+where the input and output are stored.
+
+```
+docker run --rm \
+    -v /tmp/nowcasting:/tmp/nowcasting \
+    -e INPUT=/tmp/nowcasting/in.grib2 \
+    -e OUTPUT=/tmp/nowcasting/out.grib2 \
+    -t nowcasting_biascorrection:latest
+```
+
+
 ## Authors
 marko.laine@fmi.fi leila.hieta@fmi.fi
 

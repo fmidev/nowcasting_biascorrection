@@ -11,13 +11,18 @@ library('fastgrid')
 library('rgeos')
 source('gridding.R') # subroutines
 source('smartmet_obs.R') # obs fetch from smartmet server
+source('file-access.R') # wrapper for reading/writing files from/to s3
 
 args = commandArgs(trailingOnly=TRUE)
 #args[1] = input-file
 #args[2] = output-file
 
-g_in <- args[1]
-g_out <- args[2]
+if (length(args) == 0) {
+  quit(status=1)
+}
+
+g_in <- read_s3(args[1])
+g_out <- strip_protocol(args[2])
 
 # data.frame to map grib input-file parameterNumber to corresponding smartmet server OBS name and error weights 
 grib_paramnb <- data.frame('parname'=c('2t','rh','ws'),'parnumb'=c(0,192,1),'obs_parm'=c('TA_PT1M_AVG','RH_PT1M_AVG','WS_PT10M_AVG'),'w1'=c(0.9,0.9,0.8),'w2'=c(0.9,0.8,0.7),'w3'=c(0.8,0.7,0.6),'w4'=c(0.7,0.7,0.6),stringsAsFactors=FALSE)
@@ -118,6 +123,8 @@ for (m in 1:(length(msgs)-1)) {
   savegrib(g_in,g_out,msg = mm, newdata = fc.mod2, append=TRUE)
   
 }
+
+write_s3(args[2])
 
 # extra plotting
 # out2$mod <- fc.mod2 # corrected forecast
