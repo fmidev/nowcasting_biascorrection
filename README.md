@@ -45,4 +45,4 @@ marko.laine@fmi.fi leila.hieta@fmi.fi
 * Just SYNOP-stations used for error correction 
 * Code could take the current time into account and not relay on just model information for times
 * Output data is used as input data for nowcasting_fcst
-* Output data grib meta-data generatingProcessIndentifier=204 ("MNWC_Himan")
+* Output data grib meta-data generatingProcessIndentifier=207 ("MNWC_Himan")
