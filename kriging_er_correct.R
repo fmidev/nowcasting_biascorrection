@@ -77,8 +77,17 @@ coordnames(out) <- c('longitude','latitude') # needed for gridding
 obs_param <- grib_paramnb$obs_parm[par.row]
 
 # obs from smartmet server 
-# keyword: mnwc
+# keyword: snwc
 obs <- readobs_all(t1,t1,obs_param,spatial = TRUE)
+# if wind speed, then use potential wind speed opervations when available (for Finland)
+if(param==1){
+  # retrieve WSP obs data
+  obsPT <- readobs_all(t1,t1,"WSP_PT10M_AVG",spatial = TRUE)
+  # define the indexes for which there's WSP available 
+  ind_fmisid <- which(obs$fmisid %in% obsPT$fmisid)
+  # replace original obs values wiht WSP when available
+  obs$observation <- replace(obs$observation,ind_fmisid,obsPT$observation)
+}
 
 # prepare obs
 obsx <- obs_prepare(obs,t1,raster::extent(out), LSM)
