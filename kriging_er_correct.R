@@ -1,7 +1,8 @@
 # Error correction of 1-5h forecasts for Metcoop nowcast (meps control) model for parameters t2m, rh2m and ws10m
 # model data: 2t in Kelvins, Rh 0-1
 # obs: 2t in Celsius, Rh 0-100
-# 
+# return input fields, if no obs available 
+#
 # library(devtools)
 # install_github("harphub/Rgrib2")
 library('Rgrib2')
@@ -31,10 +32,6 @@ grib_paramnb <- data.frame('parname'=c('2t','rh','ws'),'parnumb'=c(0,192,1),'obs
 param <- getfcparam(g_in) # t2m=0,rh=192,ws=1
 # select the row with extra info needed for correct parameter
 par.row <- which(grib_paramnb$parnumb==param)
-
-# read obs station list used in error correction from csv.file (subset of MOS station list)
-# stlist <- read.csv("ErrCorrectStations.csv") #1192 SYNOP only stations
-# keyword for smartmet server obs retrieval: snwc includes the stations in ErrCorrectStations.csv
 
 # Use this if time is set based on sys.time 
 # # define lates full hour in UTC (the time error is calculated from)
@@ -76,11 +73,12 @@ coordnames(out) <- c('longitude','latitude') # needed for gridding
 # define corresponding obs parameter name for smartmet server
 obs_param <- grib_paramnb$obs_parm[par.row]
 
-# obs from smartmet server 
-# keyword: snwc
+# obs from smartmet server
+# keyword for smartmet server obs retrieval: snwc includes the stations in ErrCorrectStations.csv
 obs <- readobs_all(t1,t1,obs_param,spatial = TRUE)
+
 # if wind speed, then use potential wind speed opervations when available (for Finland)
-if(param==1){
+if(param==1)  {
   # retrieve WSP obs data
   obsPT <- readobs_all(t1,t1,"WSP_PT10M_AVG",spatial = TRUE)
   # define the indexes for which there's WSP available 
@@ -89,48 +87,57 @@ if(param==1){
   obs$observation <- replace(obs$observation,ind_fmisid,obsPT$observation)
 }
 
-# prepare obs
-obsx <- obs_prepare(obs,t1,raster::extent(out), LSM)
-
-# obs for 2t in C --> K in model data
-# obs for rh 0-100 --> 0-1 in model data
-if (param==grib_paramnb$parnumb[1]){ # temperature from K --> C
-  obsx$VAR1 <- obsx$VAR1 + 273.15
-}
-if (param==grib_paramnb$parnumb[2]){ # RH from 0-1 --> 0-100
-  obsx$VAR1 <- obsx$VAR1/100
-}
-
-# gridding
-var.pred <- gridobs(obsx,out,clen=1000*clen, lsm=LSM$lsm)
-
-# diff = modified - original --> error correction 
-fcerr <- var.pred$diff  # error correction
-
-# quality control:
-# RH<0-->0 & RH>1-->1
-# ws<0-->0
-fc.mod <- qcheck(var.pred$VAR1,param,grib_paramnb)
-
-# plot corrected & diff field 
-# var.pred$VAR1 <- fc.mod
-# MOSplotting::MOS_plot_field(var.pred,layer = "VAR1", shapetrans = TRUE,cmin=min(out$VAR1), cmax = max(out$VAR1),
-#                              stations = obsx,main=paste(fc_hours[1], 'clen =',clen,'km'),pngfile=paste("mod_",m,".png",sep=""))
-# 
-# MOSplotting::MOS_plot_field(var.pred,layer = "diff", shapetrans = TRUE,cmin=min(var.pred$diff), cmax = max(var.pred$diff),
-#                             stations = obsx,main=paste(fc_hours[1], 'clen =',clen,'km'),pngfile=paste("mod_",m,".png",sep=""))
-
-savegrib(g_in,g_out,msg = m, newdata = fc.mod, append=FALSE)
-
-# now add the 1h correction to 2h,3h,4h and 5h
-wcorr <- as.vector(t(grib_paramnb[par.row,c('w1','w2','w3','w4')])) # choose the relevant error weights 
-for (m in 1:(length(msgs)-1)) {
-  mm <- msgs[2:length(msgs)][m] # index of grib message
-  out2 <- readgrib(g_in,msg=mm) # raw model data 
-  tmp_fc.mod2 <- out2$VAR1 + wcorr[m] * fcerr # error correction using varying weights for different forecast times
-  fc.mod2 <- qcheck(tmp_fc.mod2,param,grib_paramnb)
-  savegrib(g_in,g_out,msg = mm, newdata = fc.mod2, append=TRUE)
+if(!is.null(obs)) { # do error correction if there's obs available, if not return input fields 
+  # prepare obs
+  obsx <- obs_prepare(obs,t1,raster::extent(out), LSM)
   
+  # obs for 2t in C --> K in model data
+  # obs for rh 0-100 --> 0-1 in model data
+  if (param==grib_paramnb$parnumb[1]){ # temperature from K --> C
+    obsx$VAR1 <- obsx$VAR1 + 273.15
+  }
+  if (param==grib_paramnb$parnumb[2]){ # RH from 0-1 --> 0-100
+    obsx$VAR1 <- obsx$VAR1/100
+  }
+
+  # gridding
+  var.pred <- gridobs(obsx,out,clen=1000*clen, lsm=LSM$lsm)
+  
+  # diff = modified - original --> error correction 
+  fcerr <- var.pred$diff  # error correction
+
+  # quality control:
+  # RH<0-->0 & RH>1-->1
+  # ws<0-->0
+  fc.mod <- qcheck(var.pred$VAR1,param,grib_paramnb)
+
+  # plot corrected & diff field 
+  # var.pred$VAR1 <- fc.mod
+  # MOSplotting::MOS_plot_field(var.pred,layer = "VAR1", shapetrans = TRUE,cmin=min(out$VAR1), cmax = max(out$VAR1),
+  #                              stations = obsx,main=paste(fc_hours[1], 'clen =',clen,'km'),pngfile=paste("mod_",m,".png",sep=""))
+  # 
+  # MOSplotting::MOS_plot_field(var.pred,layer = "diff", shapetrans = TRUE,cmin=min(var.pred$diff), cmax = max(var.pred$diff),
+  #                             stations = obsx,main=paste(fc_hours[1], 'clen =',clen,'km'),pngfile=paste("mod_",m,".png",sep=""))
+
+  savegrib(g_in,g_out,msg = m, newdata = fc.mod, append=FALSE)
+
+  # now add the 1h correction to 2h,3h,4h and 5h
+  wcorr <- as.vector(t(grib_paramnb[par.row,c('w1','w2','w3','w4')])) # choose the relevant error weights 
+  for (m in 1:(length(msgs)-1)) {
+    mm <- msgs[2:length(msgs)][m] # index of grib message
+    out2 <- readgrib(g_in,msg=mm) # raw model data 
+    tmp_fc.mod2 <- out2$VAR1 + wcorr[m] * fcerr # error correction using varying weights for different forecast times
+    fc.mod2 <- qcheck(tmp_fc.mod2,param,grib_paramnb)
+    savegrib(g_in,g_out,msg = mm, newdata = fc.mod2, append=TRUE)
+  }
+} else { # if obs == NULL save just the input fields 
+  for (m in 1:(length(msgs))) {
+    mm <- msgs[m] # index of grib message
+    out2 <- readgrib(g_in,msg=mm) # raw model data 
+    fc.mod2 <- out2$VAR1
+    #fc.mod2 <- qcheck(tmp_fc.mod2,param,grib_paramnb)
+    savegrib(g_in,g_out,msg = mm, newdata = fc.mod2, append=TRUE)
+  }
 }
 
 write_s3(args[2])

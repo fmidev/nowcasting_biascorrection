@@ -1,8 +1,33 @@
 # fetch obs from smartmet server
-# Station_list defined by fmisid numbers
+# Station_list used is keyword=snwc
 # The first guess station_list is MOS station_list, only SYNOP stations
 
 library('httr')
+
+# Do conversion to spatial object if server returns numbers, if not then return NULL  
+obs_spatial <- function(obs) {
+  tryCatch(
+    {
+    obs <- obs[complete.cases(obs$latitude),]
+    obs <- obs[obs$latitude>-90,] # exclude south pole!
+    sp::coordinates(obs) <- c('longitude','latitude')
+    sp::proj4string(obs) <- sp::CRS("+init=epsg:4326")
+    return(obs)
+    },
+    # how to handle warnings 
+    warning = function(cond) {
+      message(cond)
+      obs = NULL
+      return(obs)
+    },
+    # how to handle errors
+    error = function(cond) {
+      message(cond)
+      obs = NULL
+      return(obs)
+    }
+  )
+}
 
 # Read observations from smartmet server
 readobs <- function(starttime, endtime, parname,
@@ -31,9 +56,22 @@ readobs <- function(starttime, endtime, parname,
 
   # modify default query from command line arguments
   query <- modifyList(defquery,query)
-  
   outfile <- tempfile(fileext = ".csv")
-  httr::GET(url=url, query=query, httr::write_disk(outfile,overwrite = TRUE))
+  
+  # if no connection to server (times out) then return NULL
+  tryCatch(
+    {
+    httr::GET(url=url, query=query, httr::write_disk(outfile,overwrite = TRUE),timeout(5))
+    },
+    # how to handle warnings 
+    warning = function(cond) {
+      message(cond)
+    },
+    # how to handle errors
+    error = function(cond) {
+    message(cond)
+    }
+  )
   
   obs <- read.csv2(outfile,sep=sep,header=FALSE,col.names=c(parameters,'observation'),dec='.',
                    stringsAsFactors=FALSE)
@@ -42,11 +80,11 @@ readobs <- function(starttime, endtime, parname,
   
     # convert to SpatialPointsDataFrame
     if (spatial) {
-      obs <- obs[complete.cases(obs$latitude),]
-      obs <- obs[obs$latitude>-90,] # exclude south pole!
-    
-      sp::coordinates(obs) <- c('longitude','latitude')
-      sp::proj4string(obs) <- sp::CRS("+init=epsg:4326")
+      obs <- obs_spatial(obs)
+      # obs <- obs[complete.cases(obs$latitude),]
+      # obs <- obs[obs$latitude>-90,] # exclude south pole!
+      # sp::coordinates(obs) <- c('longitude','latitude')
+      # sp::proj4string(obs) <- sp::CRS("+init=epsg:4326")
     }
   
     file.remove(outfile)
@@ -54,7 +92,7 @@ readobs <- function(starttime, endtime, parname,
   }
 }
 
-# return Finnish and foreign and road weather stations
+# return Finnish and foreign stations (road weather stations)
 readobs_all <- function(starttime, endtime=NULL, parname,
                         parameters = c('name','fmisid','latitude','longitude','time'),
                         spatial=FALSE) {
