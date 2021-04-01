@@ -1,24 +1,9 @@
 FROM centos:8
 
-# No rpm yet for smartmet open 8
-
-RUN echo $'[smartmet-open]\n\
-name=FMI SmartMet\n\
-baseurl=https://download.fmi.fi/smartmet-open/rhel/8/$basearch/\n\
-enabled=1\n\
-gpgcheck=0\n\
-metadata_expire=5\n\
-proxy=http://wwwcache.fmi.fi:8080\n\
-\n\
-[smartmet-open-noarch]\n\
-name=FMI SmartMet\n\
-baseurl=https://download.fmi.fi/smartmet-open/rhel/8/noarch/\n\
-enabled=0\n\
-gpgcheck=0\n\
-metadata_expire=5' > /etc/yum.repos.d/smartmet-open.repo
+RUN rpm -ivh https://download.fmi.fi/smartmet-open/rhel/8/x86_64/smartmet-open-release-21.3.26-2.el8.fmi.noarch.rpm
 
 RUN dnf -y install dnf-plugins-core && \
-    dnf config-manager --set-enabled PowerTools && \
+    dnf config-manager --set-enabled powertools && \
     dnf -y install epel-release && \
     dnf config-manager --setopt="epel.exclude=eccodes*" --save
 
