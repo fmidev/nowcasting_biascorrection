@@ -5,7 +5,7 @@ library('sp')
 library('fastgrid')
 
 # GRIB Lambert projection
-crs.lambert <- CRS('+ellps=sphere +a=6367470 +b=6367470 +proj=lcc +lon_0=15.0 +lat_0=0.0 +x_0=0.0 +y_0=0 +lat_1=63.3 +lat_2=63.3 +no_defs')
+crs.lambert <- CRS('+ellps=WGS84 +proj=lcc +lon_0=15.0 +lat_0=0.0 +x_0=0.0 +y_0=0 +lat_1=63.3 +lat_2=63.3 +no_defs')
 crs.lonlat <- CRS("+init=epsg:4326")
 
 # Transform one x y point from coordinate system p1 to p2
