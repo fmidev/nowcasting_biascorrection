@@ -32,4 +32,4 @@ WORKDIR /nowcasting_biascorrection
 
 RUN chmod g+rw /nowcasting_biascorrection # allow writes in strict environments
 
-CMD Rscript ./kriging_er_correct.R $INPUT $OUTPUT
+CMD Rscript ./kriging_er_correct.R $INPUT $OUTPUT $USE_NETATMO
