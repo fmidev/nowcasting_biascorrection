@@ -13,7 +13,7 @@ library('rgeos')
 library('raster')
 source('gridding.R') # subroutines
 source('smartmet_obs.R') # obs fetch from smartmet server
-###source('file-access.R') # wrapper for reading/writing files from/to s3
+source('file-access.R') # wrapper for reading/writing files from/to s3
 
 args = commandArgs(trailingOnly=TRUE)
 #args[1] = input-file
