@@ -124,6 +124,34 @@ qcheck <- function(fcvalue,param,grib_paramnb) {
   return(fcvalue)
 }
 
+# obs processing for NetAtmo data
+obs_prepareNetA <- function(obsN, fc_time, e=NULL, lsm=NULL,grid=NULL) {
+  # convert to MEPS coordinate system
+  obsxPP <- spTransform(obsN,crs.lambert)
+  obsxPP$VAR1 <- obsN$observation # name has to match that of the FC field
+  #obsx <- obsx[obsx$time==fc_time,] # select ftime only not used for NetAtmo
+  obsxPP <- obsxPP[complete.cases(obsxPP$VAR1),] # remove NaN values
+  # Thinning NetAtmo observations by taking the mean of possible obs values in a raster grid
+  R <- raster(grid) 
+  r <- rasterize(obsxPP, R, 'VAR1', fun=mean) 
+  # Interpolate aggregated NetAtmo data back from raster to points
+  NetAtmoPoints <- rasterToPoints(r,fun=NULL,spatial=T)
+  coordnames(NetAtmoPoints) <- c('longitude','latitude')
+  names(NetAtmoPoints) <- 'VAR1'
+  # Interpolate points from SYNOP+model field and calculate the difference to NetAtmo data for QC
+  MNWCpoints <- grid2points(var.pred,NetAtmoPoints,method='bilinear',variable='VAR1')[,1]
+  # Calculate the difference between NetAtmo aggregated point values and model point values 
+  # remove the values that differ more than |5| degrees  
+  NetAtmoPoints$MNWCdiff <- NetAtmoPoints$VAR1 - MNWCpoints
+  NetAtmoPoints <- NetAtmoPoints[(abs(NetAtmoPoints$MNWCdiff)<=5),]
+  if (!is.null(e))
+    NetAtmoPoints <- raster::crop(NetAtmoPoints,e)
+  # add lsm to observation locations
+  if (!is.null(lsm))
+    NetAtmoPoints$lsm <- grid2points(lsm,NetAtmoPoints,method='nearest',variable='lsm')[,1]
+  return(NetAtmoPoints)
+}
+
 # obs processing
 obs_prepare <- function(obs, fc_time, e=NULL, lsm=NULL) {
   # convert to MEPS coordinate system

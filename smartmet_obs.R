@@ -49,6 +49,7 @@ readobs <- function(starttime, endtime, parname,
     keyword='snwc',
     timestep='1h',
     precision='full',
+    data_quality='1',
     #param=paste(parameters,parname,collapse=I(','),sep=''),
     param=paste(c(parameters,parname),collapse=I(','),sep=''),
     producer='observations_fmi'    
@@ -61,7 +62,7 @@ readobs <- function(starttime, endtime, parname,
   # if no connection to server (times out) then return NULL
   tryCatch(
     {
-    httr::GET(url=url, query=query, httr::write_disk(outfile,overwrite = TRUE),timeout(5))
+    httr::GET(url=url, query=query, httr::write_disk(outfile,overwrite = TRUE),timeout(20))
     },
     # how to handle warnings 
     warning = function(cond) {
@@ -75,9 +76,18 @@ readobs <- function(starttime, endtime, parname,
   
   obs <- read.csv2(outfile,sep=sep,header=FALSE,col.names=c(parameters,'observation'),dec='.',
                    stringsAsFactors=FALSE)
-  if(nrow(obs)>0){
+  if (nrow(obs)>0) {
     obs$time <- as.POSIXct(obs$time,tz='UTC')
-  
+    # add QC for obs
+    if (parname=='NetAtmo' | parname=='TA_PT1M_AVG') { # for temperature [-40,40]
+      obs <- obs[(obs$observation>=(-40) & obs$observation<=40),]
+    }
+    if (parname=='WS_PT10M_AVG' | parname=='WSP_PT10M_AVG') { # for wind speed [0,40]
+      obs <- obs[(obs$observation>=0 & obs$observation<=40),]
+    } 
+    if (parname=='RH_PT1M_AVG') { # for relative humidity [0,100]
+      obs <- obs[(obs$observation>=0 & obs$observation<=100),]
+    } 
     # convert to SpatialPointsDataFrame
     if (spatial) {
       obs <- obs_spatial(obs)
@@ -98,20 +108,27 @@ readobs_all <- function(starttime, endtime=NULL, parname,
                         spatial=FALSE) {
   if (is.null(endtime))
     endtime <- starttime
-  obs1 <- readobs(starttime, endtime, parname, parameters = parameters, spatial = spatial)
-  obs2 <- readobs(starttime, endtime, parname,
-                 query=list(producer='foreign'),
-                 parameters = parameters, spatial = spatial)
-  #obs3 <- readobs(starttime, endtime, fmisid, parname,  # road weather station
-  #                query=list(producer='road'),
-  #                parameters = parameters, spatial = spatial)
-  #tmp_list <- list(obs1,obs2,obs3)
-  tmp_list <- list(obs1,obs2)
-  tmp_list <- tmp_list[lengths(tmp_list) != 0]
-  #joku = tmp_list[-which(sapply(tmp_list, is.null))]
-  #tmp_list=tmp_list[-(which(sapply(tmp_list,is.null),arr.ind=TRUE))] #remove NULL
-  obs <- do.call("rbind", tmp_list)
-  #obs <- obs[complete.cases(obs@data$TA_PT1M_AVG),] # Remove if obs for T is Nan!!!
-
+  if (parname!='NetAtmo'){ # if parameter is not NetAtmo data
+    obs1 <- readobs(starttime, endtime, parname, parameters = parameters, spatial = spatial)
+    obs2 <- readobs(starttime, endtime, parname,
+                   query=list(producer='foreign'),
+                   parameters = parameters, spatial = spatial)
+    #obs3 <- readobs(starttime, endtime, fmisid, parname,  # road weather station
+    #                query=list(producer='road'),
+    #                parameters = parameters, spatial = spatial)
+    #tmp_list <- list(obs1,obs2,obs3)
+    tmp_list <- list(obs1,obs2)
+    tmp_list <- tmp_list[lengths(tmp_list) != 0]
+    #joku = tmp_list[-which(sapply(tmp_list, is.null))]
+    #tmp_list=tmp_list[-(which(sapply(tmp_list,is.null),arr.ind=TRUE))] #remove NULL
+    obs <- do.call("rbind", tmp_list)
+    #obs <- obs[complete.cases(obs@data$TA_PT1M_AVG),] # Remove if obs for T is Nan!!!
+  } else if (parname=='NetAtmo') {
+    #obs <- fread(paste("http://smartmet.fmi.fi/timeseries?producer=NetAtmo&tz=gmt&precision=full&starttime=",alku1,"&endtime=",loppu1,"&param=data,station_id,longitude,latitude,utctime,temperature&format=ascii&data_quality=1&bbox=7,55,32,70",sep=""))
+    obs <- readobs(starttime, endtime, parname='temperature',
+                    query=list(producer='NetAtmo'), 
+                    parameters = c('name','station_id','latitude','longitude','time'), spatial = spatial)
+  }
+    
   return(obs)
 }

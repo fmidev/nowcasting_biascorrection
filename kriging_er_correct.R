@@ -10,13 +10,15 @@ library('httr')
 library('sp')
 library('fastgrid')
 library('rgeos')
+library('raster')
 source('gridding.R') # subroutines
 source('smartmet_obs.R') # obs fetch from smartmet server
-source('file-access.R') # wrapper for reading/writing files from/to s3
+###source('file-access.R') # wrapper for reading/writing files from/to s3
 
 args = commandArgs(trailingOnly=TRUE)
 #args[1] = input-file
 #args[2] = output-file
+#args[3] = Netatmo TRUE/FALSE
 
 if (length(args) == 0) {
   quit(status=1)
@@ -24,6 +26,7 @@ if (length(args) == 0) {
 
 g_in <- read_s3(args[1])
 g_out <- strip_protocol(args[2])
+use_NetA <- args[3] # TRUE if NetAtmo data is used, FALSE if not
 
 # data.frame to map grib input-file parameterNumber to corresponding smartmet server OBS name and error weights 
 grib_paramnb <- data.frame('parname'=c('2t','rh','ws'),'parnumb'=c(0,192,1),'obs_parm'=c('TA_PT1M_AVG','RH_PT1M_AVG','WS_PT10M_AVG'),'w1'=c(0.9,0.9,0.8),'w2'=c(0.9,0.8,0.7),'w3'=c(0.8,0.7,0.6),'w4'=c(0.7,0.7,0.6),stringsAsFactors=FALSE)
@@ -46,11 +49,10 @@ par.row <- which(grib_paramnb$parnumb==param)
 # g_in <- 'smnwc-T-K.grib2' # temperature test dataset  
 # g_in <- 'smnwc-RH-0TO1.grib2' # relative humidity test dataset
 # g_in <- 'smnwc-FF-MS.grib2' # wind speed test dataset
-# get the grib parameterNumber
-# param <- getfcparam(g_in) # t2m=0,rh=192,ws=1
 
 # correlation length km
 clen <- 50 
+clenx <- 10 # smaller correlation length used for NetAtmo data
 # land sea mask used
 LSM <- readRDS('MEPS_lsm_sea.Rds') # only sea (+Vänern and Wettern)
 coordnames(LSM) <- c('longitude','latitude') # needed for gridding (should be fixed!)
@@ -90,7 +92,6 @@ if(param==1)  {
 if(!is.null(obs)) { # do error correction if there's obs available, if not return input fields 
   # prepare obs
   obsx <- obs_prepare(obs,t1,raster::extent(out), LSM)
-  
   # obs for 2t in C --> K in model data
   # obs for rh 0-100 --> 0-1 in model data
   if (param==grib_paramnb$parnumb[1]){ # temperature from K --> C
@@ -112,13 +113,40 @@ if(!is.null(obs)) { # do error correction if there's obs available, if not retur
   fc.mod <- qcheck(var.pred$VAR1,param,grib_paramnb)
 
   # plot corrected & diff field 
-  # var.pred$VAR1 <- fc.mod
-  # MOSplotting::MOS_plot_field(var.pred,layer = "VAR1", shapetrans = TRUE,cmin=min(out$VAR1), cmax = max(out$VAR1),
-  #                              stations = obsx,main=paste(fc_hours[1], 'clen =',clen,'km'),pngfile=paste("mod_",m,".png",sep=""))
+  #var.pred$VAR1 <- fc.mod
+  #MOSplotting::MOS_plot_field(var.pred,layer = "VAR1", shapetrans = TRUE,cmin=min(out$VAR1), cmax = max(out$VAR1),
+  #                              stations = obsx,main=paste(fc_hours[1], 'clen =',clen,'km'),pngfile=paste("mod_var",m,".png",sep=""))
   # 
-  # MOSplotting::MOS_plot_field(var.pred,layer = "diff", shapetrans = TRUE,cmin=min(var.pred$diff), cmax = max(var.pred$diff),
-  #                             stations = obsx,main=paste(fc_hours[1], 'clen =',clen,'km'),pngfile=paste("mod_",m,".png",sep=""))
-
+  #MOSplotting::MOS_plot_field(var.pred,layer = "diff", shapetrans = TRUE,cmin=(-7), cmax = 7,
+  #                             stations = obsx,main=paste(fc_hours[1], 'clen =',clen,'km'),pngfile=paste("SYN_",m,".png",sep=""))
+  
+  # if temperature then add NetAtmo QC corrected obs to bias correction
+  if (use_NetA == TRUE & param==grib_paramnb$parnumb[1]){ 
+    var.pred$VAR1 <- fc.mod
+    alku <- t1-(10*60) # NetAtmo data is taken from 10 min time interval xx:50-t1
+    obsNetA <- readobs_all(alku,t1,parname = 'NetAtmo',spatial = TRUE) # fetch NetAtm QC corrected obs
+    names(obsNetA)<-c('name','fmisid','time','observation')
+    if(!is.null(obsNetA)) { # do error correction if there's NetAtmo obs available, if not return SYNOP corrected fields  
+      obsNetA$observation <- obsNetA$observation + 273.15
+      # prepare obs
+      obsNetAx <- obs_prepareNetA(obsNetA,t1,raster::extent(out),LSM,grid=var.pred)
+      # coordnames(obsNetAx) <- c('longitude','latitude')
+      var.predX <- gridobs(obsNetAx,var.pred,clen=1000*clenx,lsm=LSM$lsm)
+      # diff = modified - original --> error correction 
+      fcerr <- var.predX$diff  # error correction
+      fc.mod <- qcheck(var.predX$VAR1,param,grib_paramnb)
+      
+  #    MOSplotting::MOS_plot_field(var.predX,layer = "diff", shapetrans = TRUE,cmin=(-5), cmax = 5,
+  #                            main=paste(fc_hours[1], 'clen =',clenx,'km'),pngfile=paste("mod_NA",m,".png",sep=""))
+  #    MOSplotting::MOS_plot_field(var.predX,layer = "VAR1", shapetrans = TRUE,cmin=(250), cmax = 290,
+  #                                stations = obsNetAx,main=paste(fc_hours[1], 'clen =',clen,'km'),pngfile=paste("mod_VAR_NA",m,".png",sep=""))
+  #    MOSplotting::MOS_plot_field(var.pred,layer = "VAR1", shapetrans = TRUE,cmin=(250), cmax = 290,
+  #                                main=paste(fc_hours[1], 'clen =',clen,'km'),pngfile=paste("mod_",m,".png",sep=""))
+  #    MOSplotting::MOS_plot_field(out,layer = "VAR1", shapetrans = TRUE,cmin=(250), cmax = 290,
+  #                                main=paste(fc_hours[1], 'clen =',clen,'km'),pngfile=paste("mod_",m,".png",sep=""))
+      
+    }
+  }
   savegrib(g_in,g_out,msg = m, newdata = fc.mod, append=FALSE)
 
   # now add the 1h correction to 2h,3h,4h and 5h
@@ -151,4 +179,3 @@ write_s3(args[2])
 # 
 # MOSplotting::MOS_plot_field(out2,layer = "diff", shapetrans = TRUE,cmin=min(out2$diff), cmax = max(out2$diff),
 #                            stations = obsx,main=paste(fc_hours[2], 'clen =',clen,'km'))
-
