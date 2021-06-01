@@ -13,7 +13,7 @@ library('rgeos')
 library('raster')
 source('gridding.R') # subroutines
 source('smartmet_obs.R') # obs fetch from smartmet server
-###source('file-access.R') # wrapper for reading/writing files from/to s3
+source('file-access.R') # wrapper for reading/writing files from/to s3
 
 args = commandArgs(trailingOnly=TRUE)
 #args[1] = input-file
@@ -51,7 +51,7 @@ par.row <- which(grib_paramnb$parnumb==param)
 # g_in <- 'smnwc-FF-MS.grib2' # wind speed test dataset
 
 # correlation length km
-clen <- 50 
+clen <- 30 # limited for SYNOP from 50 --> 30km 
 clenx <- 10 # smaller correlation length used for NetAtmo data
 # land sea mask used
 LSM <- readRDS('MEPS_lsm_sea.Rds') # only sea (+Vänern and Wettern)
@@ -111,14 +111,17 @@ if(!is.null(obs)) { # do error correction if there's obs available, if not retur
   # RH<0-->0 & RH>1-->1
   # ws<0-->0
   fc.mod <- qcheck(var.pred$VAR1,param,grib_paramnb)
+  # limit the modifications BC can do
+  # RH diff field max +-20% 
+  var.pred$diff <- diff_qcheck(var.pred$diff,param,grib_paramnb)
 
   # plot corrected & diff field 
   #var.pred$VAR1 <- fc.mod
   #MOSplotting::MOS_plot_field(var.pred,layer = "VAR1", shapetrans = TRUE,cmin=min(out$VAR1), cmax = max(out$VAR1),
   #                              stations = obsx,main=paste(fc_hours[1], 'clen =',clen,'km'),pngfile=paste("mod_var",m,".png",sep=""))
-  # 
-  #MOSplotting::MOS_plot_field(var.pred,layer = "diff", shapetrans = TRUE,cmin=(-7), cmax = 7,
-  #                             stations = obsx,main=paste(fc_hours[1], 'clen =',clen,'km'),pngfile=paste("SYN_",m,".png",sep=""))
+  
+  #MOSplotting::MOS_plot_field(var.pred,layer = "diff", shapetrans = TRUE,cmin=(-5), cmax = 5,
+  #                            stations = obsx,main=paste(fc_hours[1], 'clen =',clen,'km'),pngfile=paste("SYN_",m,".png",sep=""))
   
   # if temperature then add NetAtmo QC corrected obs to bias correction
   if (use_NetA == TRUE & param==grib_paramnb$parnumb[1]){ 

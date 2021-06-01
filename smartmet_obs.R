@@ -49,7 +49,7 @@ readobs <- function(starttime, endtime, parname,
     keyword='snwc',
     timestep='1h',
     precision='full',
-    data_quality='1',
+    #data_quality='1',
     #param=paste(parameters,parname,collapse=I(','),sep=''),
     param=paste(c(parameters,parname),collapse=I(','),sep=''),
     producer='observations_fmi'    
@@ -126,7 +126,7 @@ readobs_all <- function(starttime, endtime=NULL, parname,
   } else if (parname=='NetAtmo') {
     #obs <- fread(paste("http://smartmet.fmi.fi/timeseries?producer=NetAtmo&tz=gmt&precision=full&starttime=",alku1,"&endtime=",loppu1,"&param=data,station_id,longitude,latitude,utctime,temperature&format=ascii&data_quality=1&bbox=7,55,32,70",sep=""))
     obs <- readobs(starttime, endtime, parname='temperature',
-                    query=list(producer='NetAtmo'), 
+                    query=list(producer='NetAtmo',data_quality='1'), 
                     parameters = c('name','station_id','latitude','longitude','time'), spatial = spatial)
   }
     

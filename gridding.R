@@ -124,6 +124,18 @@ qcheck <- function(fcvalue,param,grib_paramnb) {
   return(fcvalue)
 }
 
+# quality check for error correction, limit the max difference allowed to BC
+diff_qcheck <- function(diffvalue,param,grib_paramnb) {
+  if(param==grib_paramnb$parnumb[2]) { # rh
+    diffvalue[diffvalue>0.2]<-0.2
+    diffvalue[diffvalue<(-0.2)]<-(-0.2)
+  }
+  # if(param==grib_paramnb$parnumb[3]) { # ws
+  #  fcvalue[fcvalue<0]<-0
+  # }
+  return(diffvalue)
+}
+
 # obs processing for NetAtmo data
 obs_prepareNetA <- function(obsN, fc_time, e=NULL, lsm=NULL,grid=NULL) {
   # convert to MEPS coordinate system
