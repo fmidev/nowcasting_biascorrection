@@ -32,4 +32,8 @@ WORKDIR /nowcasting_biascorrection
 
 RUN chmod g+rw /nowcasting_biascorrection # allow writes in strict environments
 
-CMD Rscript ./kriging_er_correct.R $INPUT $OUTPUT
+ENV LD_PRELOAD /usr/lib64/libopenblasp.so
+ENV OMP_NUM_THREADS 6
+ENV OPENBLAS_NUM_THREADS 6
+
+CMD Rscript ./kriging_er_correct.R $INPUT $OUTPUT $USE_NETATMO
