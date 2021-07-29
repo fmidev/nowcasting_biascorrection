@@ -78,15 +78,21 @@ readobs <- function(starttime, endtime, parname,
                    stringsAsFactors=FALSE)
   if (nrow(obs)>0) {
     obs$time <- as.POSIXct(obs$time,tz='UTC')
-    # add QC for obs
+    # add QC for obs: based on static thresholds and on distribution (chi-sq test)
     if (parname=='NetAtmo' | parname=='TA_PT1M_AVG') { # for temperature [-40,40]
       obs <- obs[(obs$observation>=(-40) & obs$observation<=40),]
+      outliers <- scores(obs$observation, type="chisq", prob=0.995) # chi-sq scores => (x - mean(x))^2/var(x)
+      obs <- obs[outliers==FALSE,]
     }
     if (parname=='WS_PT10M_AVG' | parname=='WSP_PT10M_AVG') { # for wind speed [0,40]
       obs <- obs[(obs$observation>=0 & obs$observation<=40),]
+      outliers <- scores(obs$observation, type="chisq", prob=0.9999) 
+      obs <- obs[outliers==FALSE,]
     } 
     if (parname=='RH_PT1M_AVG') { # for relative humidity [0,100]
       obs <- obs[(obs$observation>=0 & obs$observation<=100),]
+      outliers <- scores(obs$observation, type="chisq", prob=0.9999) 
+      obs <- obs[outliers==FALSE,]
     } 
     # convert to SpatialPointsDataFrame
     if (spatial) {

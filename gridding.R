@@ -147,7 +147,7 @@ obs_prepareNetA <- function(obsN, fc_time, e=NULL, lsm=NULL,grid=NULL) {
   R <- raster(grid) 
   r <- rasterize(obsxPP, R, 'VAR1', fun=mean) 
   # Interpolate aggregated NetAtmo data back from raster to points
-  NetAtmoPoints <- rasterToPoints(r,fun=NULL,spatial=T)
+  NetAtmoPoints <- rasterToPoints(r,fun=NULL,spatial=TRUE)
   coordnames(NetAtmoPoints) <- c('longitude','latitude')
   names(NetAtmoPoints) <- 'VAR1'
   # Interpolate points from SYNOP+model field and calculate the difference to NetAtmo data for QC

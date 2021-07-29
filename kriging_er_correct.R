@@ -11,6 +11,7 @@ library('sp')
 library('fastgrid')
 library('rgeos')
 library('raster')
+library('outliers')
 source('gridding.R') # subroutines
 source('smartmet_obs.R') # obs fetch from smartmet server
 source('file-access.R') # wrapper for reading/writing files from/to s3
@@ -85,7 +86,9 @@ if(param==1)  {
   obsPT <- readobs_all(t1,t1,"WSP_PT10M_AVG",spatial = TRUE)
   # define the indexes for which there's WSP available 
   ind_fmisid <- which(obs$fmisid %in% obsPT$fmisid)
-  # replace original obs values wiht WSP when available
+  # extra check in case there are WSPT values but no WS values (this has happened for station 101061) 
+  obsPT <- obsPT[which(obsPT$fmisid %in% obs$fmisid),]
+  # replace original obs values with WSP when available
   obs$observation <- replace(obs$observation,ind_fmisid,obsPT$observation)
 }
 
@@ -125,27 +128,28 @@ if(!is.null(obs)) { # do error correction if there's obs available, if not retur
   
   # if temperature then add NetAtmo QC corrected obs to bias correction
   if (use_NetA == TRUE & param==grib_paramnb$parnumb[1]){ 
-    var.pred$VAR1 <- fc.mod
+    var.pred$VAR1 <- fc.mod 
     alku <- t1-(10*60) # NetAtmo data is taken from 10 min time interval xx:50-t1
     obsNetA <- readobs_all(alku,t1,parname = 'NetAtmo',spatial = TRUE) # fetch NetAtm QC corrected obs
-    names(obsNetA)<-c('name','fmisid','time','observation')
     if(!is.null(obsNetA)) { # do error correction if there's NetAtmo obs available, if not return SYNOP corrected fields  
+      names(obsNetA)<-c('name','fmisid','time','observation')
       obsNetA$observation <- obsNetA$observation + 273.15
       # prepare obs
       obsNetAx <- obs_prepareNetA(obsNetA,t1,raster::extent(out),LSM,grid=var.pred)
       # coordnames(obsNetAx) <- c('longitude','latitude')
       var.predX <- gridobs(obsNetAx,var.pred,clen=1000*clenx,lsm=LSM$lsm)
       # diff = modified - original --> error correction 
-      fcerr <- var.predX$diff  # error correction
+      # error correction "fcerr" is now the SYNOP+NETATMO corrected field minus original model data   
+      fcerr <- var.predX$VAR1 - out$VAR1 # var.predX$diff  # error correction
       fc.mod <- qcheck(var.predX$VAR1,param,grib_paramnb)
       
-  #    MOSplotting::MOS_plot_field(var.predX,layer = "diff", shapetrans = TRUE,cmin=(-5), cmax = 5,
-  #                            main=paste(fc_hours[1], 'clen =',clenx,'km'),pngfile=paste("mod_NA",m,".png",sep=""))
-  #    MOSplotting::MOS_plot_field(var.predX,layer = "VAR1", shapetrans = TRUE,cmin=(250), cmax = 290,
-  #                                stations = obsNetAx,main=paste(fc_hours[1], 'clen =',clen,'km'),pngfile=paste("mod_VAR_NA",m,".png",sep=""))
-  #    MOSplotting::MOS_plot_field(var.pred,layer = "VAR1", shapetrans = TRUE,cmin=(250), cmax = 290,
-  #                                main=paste(fc_hours[1], 'clen =',clen,'km'),pngfile=paste("mod_",m,".png",sep=""))
-  #    MOSplotting::MOS_plot_field(out,layer = "VAR1", shapetrans = TRUE,cmin=(250), cmax = 290,
+  # MOSplotting::MOS_plot_field(var.predX,layer = "diff", shapetrans = TRUE,cmin=(-5), cmax = 5,
+  #                        main=paste(fc_hours[1], 'clen =',clenx,'km'),pngfile=paste("mod_NA",m,".png",sep=""))
+  # MOSplotting::MOS_plot_field(var.predX,layer = "VAR1", shapetrans = TRUE,cmin=(250), cmax = 290,
+  #                            stations = obsNetAx,main=paste(fc_hours[1], 'clen =',clen,'km'),pngfile=paste("mod_VAR_NA",m,".png",sep=""))
+  # MOSplotting::MOS_plot_field(var.pred,layer = "VAR1", shapetrans = TRUE,cmin=(250), cmax = 290,
+  #                            main=paste(fc_hours[1], 'clen =',clen,'km'),pngfile=paste("mod_",m,".png",sep=""))
+  # MOSplotting::MOS_plot_field(out,layer = "VAR1", shapetrans = TRUE,cmin=(250), cmax = 290,
   #                                main=paste(fc_hours[1], 'clen =',clen,'km'),pngfile=paste("mod_",m,".png",sep=""))
       
     }
@@ -172,6 +176,7 @@ if(!is.null(obs)) { # do error correction if there's obs available, if not retur
 }
 
 write_s3(args[2])
+
 
 # extra plotting
 # out2$mod <- fc.mod2 # corrected forecast
