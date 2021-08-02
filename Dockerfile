@@ -22,7 +22,7 @@ RUN dnf -y install R-core \
     && dnf clean all && rm -rf /var/cache/yum
 
 ENV LC_ALL=C
-RUN R -e 'install.packages(c("devtools","sp","rgeos","rgdal","raster","aws.s3"),repos="http://ftp.eenet.ee/pub/cran/",build_vignettes=F)'
+RUN R -e 'install.packages(c("devtools","sp","rgeos","rgdal","raster","aws.s3","outliers"),repos="http://ftp.eenet.ee/pub/cran/",build_vignettes=F)'
 RUN R -e 'devtools::install_github(c("mjlaine/fastgrid","harphub/Rgrib2"),build_vignettes=F)'
 
 RUN mkdir /nowcasting_biascorrection
