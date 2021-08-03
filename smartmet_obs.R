@@ -62,7 +62,9 @@ readobs <- function(starttime, endtime, parname,
   # if no connection to server (times out) then return NULL
   tryCatch(
     {
+    a <- Sys.time()  
     httr::GET(url=url, query=query, httr::write_disk(outfile,overwrite = TRUE),timeout(20))
+    print(paste('Retrieving ',query$producer,' obs for ',parname,' takes: ', round(Sys.time()-a,digits=2),'s',sep=''))
     },
     # how to handle warnings 
     warning = function(cond) {
