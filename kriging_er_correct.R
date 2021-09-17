@@ -28,7 +28,7 @@ if (length(args) == 0) {
 
 g_in <- read_s3(args[1])
 g_out <- strip_protocol(args[2])
-#g_in <- args[1] #KOmmentoi pois
+#g_in <- args[1] 
 #g_out <- args[2]
 use_NetA <- args[3] # TRUE if NetAtmo data is used, FALSE if not
 
