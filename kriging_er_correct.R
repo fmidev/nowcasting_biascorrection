@@ -5,6 +5,7 @@
 #
 # library(devtools)
 # install_github("harphub/Rgrib2")
+
 library('Rgrib2')
 library('httr')
 library('sp')
@@ -27,6 +28,8 @@ if (length(args) == 0) {
 
 g_in <- read_s3(args[1])
 g_out <- strip_protocol(args[2])
+#g_in <- args[1] #KOmmentoi pois
+#g_out <- args[2]
 use_NetA <- args[3] # TRUE if NetAtmo data is used, FALSE if not
 
 # data.frame to map grib input-file parameterNumber to corresponding smartmet server OBS name and error weights 
@@ -55,8 +58,9 @@ par.row <- which(grib_paramnb$parnumb==param)
 clen <- 30 # limited for SYNOP from 50 --> 30km 
 clenx <- 10 # smaller correlation length used for NetAtmo data
 # land sea mask used
-LSM <- readRDS('MEPS_lsm_sea.Rds') # only sea (+Vänern and Wettern)
-coordnames(LSM) <- c('longitude','latitude') # needed for gridding (should be fixed!)
+LSM <- readRDS('MEPS_lsm.Rds') # only sea (+Vänern and Wettern)
+#  model elevation used
+MELEV <- readRDS('MEPS_alt.Rds')
 
 # Forecast leadtimes 15min/1h (depends on the data) steps in Metcoop nowcast
 mtimes <- getfcdates(g_in) # in grib files times <10 with 3 numbers, this function works also when 00:00 --> 0!
@@ -105,7 +109,7 @@ if(!is.null(obs)) { # do error correction if there's obs available, if not retur
   }
 
   # gridding
-  var.pred <- gridobs(obsx,out,clen=1000*clen, lsm=LSM$lsm)
+  var.pred <- gridobs(obsx,out,clen=1000*clen, lsm=LSM$lsm, melev = MELEV$melev)
   
   # diff = modified - original --> error correction 
   fcerr <- var.pred$diff  # error correction
@@ -132,19 +136,26 @@ if(!is.null(obs)) { # do error correction if there's obs available, if not retur
     alku <- t1-(10*60) # NetAtmo data is taken from 10 min time interval xx:50-t1
     obsNetA <- readobs_all(alku,t1,parname = 'NetAtmo',spatial = TRUE) # fetch NetAtm QC corrected obs
     if(!is.null(obsNetA)) { # do error correction if there's NetAtmo obs available, if not return SYNOP corrected fields  
+      # Digital elevation model info used to define NetAtmo elevation
+      destfile <- tempfile(fileext = ".tif")
+      txt_s3 <- "https://lake.fmi.fi/smartmet-nwc-dem-data/DEM_100m-Int16.tif"
+      download.file(url=txt_s3,destfile=destfile, method="wget",extra = '--no-proxy --no-check-certificate',quiet=TRUE)
+      DEM <- raster(destfile)
       names(obsNetA)<-c('name','fmisid','time','observation')
       obsNetA$observation <- obsNetA$observation + 273.15
       # prepare obs
       obsNetAx <- obs_prepareNetA(obsNetA,t1,raster::extent(out),LSM,grid=var.pred)
       # coordnames(obsNetAx) <- c('longitude','latitude')
-      var.predX <- gridobs(obsNetAx,var.pred,clen=1000*clenx,lsm=LSM$lsm)
+      # extract elevation information from digital elevation model
+      obsNetAx$elevation <- extract(DEM,obsNetAx)
+      var.predX <- gridobs(obsNetAx,var.pred,clen=1000*clenx,lsm=LSM$lsm, melev = MELEV$melev)
       # diff = modified - original --> error correction 
       # error correction "fcerr" is now the SYNOP+NETATMO corrected field minus original model data   
       fcerr <- var.predX$VAR1 - out$VAR1 # var.predX$diff  # error correction
       fc.mod <- qcheck(var.predX$VAR1,param,grib_paramnb)
-      
+      file.remove(destfile)
   # MOSplotting::MOS_plot_field(var.predX,layer = "diff", shapetrans = TRUE,cmin=(-5), cmax = 5,
-  #                        main=paste(fc_hours[1], 'clen =',clenx,'km'),pngfile=paste("mod_NA",m,".png",sep=""))
+  #                       main=paste(fc_hours[1], 'clen =',clenx,'km'),zoom=c(-600000,-300000,7900000,8500000),pngfile=paste("mod_NA",m,".png",sep=""))
   # MOSplotting::MOS_plot_field(var.predX,layer = "VAR1", shapetrans = TRUE,cmin=(250), cmax = 290,
   #                            stations = obsNetAx,main=paste(fc_hours[1], 'clen =',clen,'km'),pngfile=paste("mod_VAR_NA",m,".png",sep=""))
   # MOSplotting::MOS_plot_field(var.pred,layer = "VAR1", shapetrans = TRUE,cmin=(250), cmax = 290,

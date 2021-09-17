@@ -99,15 +99,15 @@ savegrib <- function(gin,gout,msg=1,newdata=NULL,append=FALSE) {
 }
 
 # gridding point observations to background grid using 'fastgrid' package
-gridobs <- function(obs,grid, variable="VAR1", sigma = 5.0, nugget=0.2, clen=1000*10, lsm=NULL) {
+gridobs <- function(obs,grid,altlen=200, variable="VAR1", sigma = 5.0, nugget=0.2, clen=1000*10, lsm=NULL, melev=NULL) {
   
   covpars <- c(sigma,clen,nugget)
   trend_model <- as.formula(paste(variable,'~ -1'))
   coordnames(grid) <- c('longitude','latitude')
   var.pred <- fastkriege(trend_model = trend_model, obs, grid, cov.pars = covpars, 
-                         lsm=lsm,lsmy=obs$lsm, alt=NULL, alty=NULL,
+                         lsm=lsm,lsmy=obs$lsm, alt=melev, altlen=altlen, alty=obs$elevation,
                          bg=grid, variable=variable, LapseRate = 0.0,
-                         method='nearest')
+                         method='bilinear')
   
   return(var.pred)
 }

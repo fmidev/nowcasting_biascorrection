@@ -31,7 +31,7 @@ obs_spatial <- function(obs) {
 
 # Read observations from smartmet server
 readobs <- function(starttime, endtime, parname,
-  parameters = c('name','fmisid','latitude','longitude','time'),
+  parameters = c('name','fmisid','latitude','longitude','time','elevation'),
   query = list(),
   spatial=FALSE) {
 
@@ -112,7 +112,7 @@ readobs <- function(starttime, endtime, parname,
 
 # return Finnish and foreign stations (road weather stations)
 readobs_all <- function(starttime, endtime=NULL, parname,
-                        parameters = c('name','fmisid','latitude','longitude','time'),
+                        parameters = c('name','fmisid','latitude','longitude','time','elevation'),
                         spatial=FALSE) {
   if (is.null(endtime))
     endtime <- starttime
