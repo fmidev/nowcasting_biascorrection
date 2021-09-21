@@ -139,7 +139,7 @@ if(!is.null(obs)) { # do error correction if there's obs available, if not retur
       # Digital elevation model info used to define NetAtmo elevation
       destfile <- tempfile(fileext = ".tif")
       txt_s3 <- "https://lake.fmi.fi/smartmet-nwc-dem-data/DEM_100m-Int16.tif"
-      download.file(url=txt_s3,destfile=destfile, method="wget",extra = '--no-proxy --no-check-certificate',quiet=TRUE)
+      download.file(url=txt_s3,destfile=destfile, method="auto",extra = '--no-proxy --no-check-certificate',quiet=TRUE)
       DEM <- raster(destfile)
       names(obsNetA)<-c('name','fmisid','time','observation')
       obsNetA$observation <- obsNetA$observation + 273.15
