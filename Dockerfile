@@ -19,6 +19,7 @@ RUN dnf -y install R-core \
                    eccodes eccodes-devel \
                    geos-devel \
                    gdal-devel \
+                   sqlite-devel \
     && dnf clean all && rm -rf /var/cache/yum
 
 ENV LC_ALL=C
