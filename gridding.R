@@ -114,9 +114,9 @@ gridobs <- function(obs,grid,altlen=200, variable="VAR1", sigma = 5.0, nugget=0.
 
 # quality check for corrected forecast 
 qcheck <- function(fcvalue,param,grib_paramnb) {
-  if(param==grib_paramnb$parnumb[2]) { # rh
+  if(param==grib_paramnb$parnumb[2]) { # rh values between 5-100%
     fcvalue[fcvalue>1]<-1
-    fcvalue[fcvalue<0]<-0
+    fcvalue[fcvalue<0.05]<-0.05
   }
   if(param==grib_paramnb$parnumb[3]) { # ws
     fcvalue[fcvalue<0]<-0
