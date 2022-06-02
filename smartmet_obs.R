@@ -8,11 +8,11 @@ library('httr')
 obs_spatial <- function(obs) {
   tryCatch(
     {
-    obs <- obs[complete.cases(obs$latitude),]
-    obs <- obs[obs$latitude>-90,] # exclude south pole!
-    sp::coordinates(obs) <- c('longitude','latitude')
-    sp::proj4string(obs) <- sp::CRS("+init=epsg:4326")
-    return(obs)
+      obs <- obs[complete.cases(obs$latitude),]
+      obs <- obs[obs$latitude>-90,] # exclude south pole!
+      sp::coordinates(obs) <- c('longitude','latitude')
+      sp::proj4string(obs) <- sp::CRS("+init=epsg:4326")
+      return(obs)
     },
     # how to handle warnings 
     warning = function(cond) {
@@ -31,10 +31,10 @@ obs_spatial <- function(obs) {
 
 # Read observations from smartmet server
 readobs <- function(starttime, endtime, parname,
-  parameters = c('name','fmisid','latitude','longitude','time','elevation'),
-  query = list(),
-  spatial=FALSE) {
-
+                    parameters = c('name','fmisid','latitude','longitude','time','elevation'),
+                    query = list(),
+                    spatial=FALSE) {
+  
   url <- 'http://smartmet.fmi.fi/timeseries'
   sep <- I(';') # csv separator I()
   
@@ -54,7 +54,7 @@ readobs <- function(starttime, endtime, parname,
     param=paste(c(parameters,parname),collapse=I(','),sep=''),
     producer='observations_fmi'    
   )
-
+  
   # modify default query from command line arguments
   query <- modifyList(defquery,query)
   outfile <- tempfile(fileext = ".csv")
@@ -62,9 +62,9 @@ readobs <- function(starttime, endtime, parname,
   # if no connection to server (times out) then return NULL
   tryCatch(
     {
-    a <- Sys.time()  
-    httr::GET(url=url, query=query, httr::write_disk(outfile,overwrite = TRUE),timeout(20))
-    print(paste('Retrieving ',query$producer,' obs for ',parname,' takes: ', round(Sys.time()-a,digits=2),'s',sep=''))
+      a <- Sys.time()  
+      httr::GET(url=url, query=query, httr::write_disk(outfile,overwrite = TRUE),timeout(20))
+      print(paste('Retrieving ',query$producer,' obs for ',parname,' takes: ', round(Sys.time()-a,digits=2),'s',sep=''))
     },
     # how to handle warnings 
     warning = function(cond) {
@@ -72,7 +72,7 @@ readobs <- function(starttime, endtime, parname,
     },
     # how to handle errors
     error = function(cond) {
-    message(cond)
+      message(cond)
     }
   )
   
@@ -104,7 +104,7 @@ readobs <- function(starttime, endtime, parname,
       # sp::coordinates(obs) <- c('longitude','latitude')
       # sp::proj4string(obs) <- sp::CRS("+init=epsg:4326")
     }
-  
+    
     file.remove(outfile)
     return(obs)
   }
@@ -116,11 +116,11 @@ readobs_all <- function(starttime, endtime=NULL, parname,
                         spatial=FALSE) {
   if (is.null(endtime))
     endtime <- starttime
-  if (parname!='NetAtmo'){ # if parameter is not NetAtmo data
+  if (parname!='NetAtmo' && parname!='flash')  { # if parameter is not NetAtmo data nor flash
     obs1 <- readobs(starttime, endtime, parname, parameters = parameters, spatial = spatial)
     obs2 <- readobs(starttime, endtime, parname,
-                   query=list(producer='foreign'),
-                   parameters = parameters, spatial = spatial)
+                    query=list(producer='foreign'),
+                    parameters = parameters, spatial = spatial)
     #obs3 <- readobs(starttime, endtime, fmisid, parname,  # road weather station
     #                query=list(producer='road'),
     #                parameters = parameters, spatial = spatial)
@@ -134,9 +134,21 @@ readobs_all <- function(starttime, endtime=NULL, parname,
   } else if (parname=='NetAtmo') {
     #obs <- fread(paste("http://smartmet.fmi.fi/timeseries?producer=NetAtmo&tz=gmt&precision=full&starttime=",alku1,"&endtime=",loppu1,"&param=data,station_id,longitude,latitude,utctime,temperature&format=ascii&data_quality=1&bbox=7,55,32,70",sep=""))
     obs <- readobs(starttime, endtime, parname='temperature',
-                    query=list(producer='NetAtmo',data_quality='1'), 
-                    parameters = c('name','station_id','latitude','longitude','time'), spatial = spatial)
+                   query=list(producer='NetAtmo',data_quality='1'), 
+                   parameters = c('name','station_id','latitude','longitude','time'), spatial = spatial)
+  } else if (parname == 'flash') {
+    # flash obs: retrieve flash strike observations from time -30mins < t1 < +20 mins.
+    starttime <- starttime - 30*60
+    endtime <- endtime + 20*60
+    obs <- readobs(starttime,endtime,parname='peak_current',
+                   query=list(producer='flash'), 
+                   parameters = c('name','flash_id','latitude','longitude','time'), spatial = spatial)
+    # assign value 100(%) for individual flash strike observation
+    if (!is.null(obs)) {
+      obs$observation <- 100
+    }
   }
-    
+  
   return(obs)
 }
+

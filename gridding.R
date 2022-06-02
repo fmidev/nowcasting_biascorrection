@@ -121,6 +121,10 @@ qcheck <- function(fcvalue,param,grib_paramnb) {
   if(param==grib_paramnb$parnumb[3]) { # ws
     fcvalue[fcvalue<0]<-0
   }
+  if(param==grib_paramnb$parnumb[4]) { # flash strikes --> thunder prob limit values betwenn 0-100]
+    fcvalue[fcvalue>100]<-100
+    fcvalue[fcvalue<0]<-0
+  }
   return(fcvalue)
 }
 
@@ -168,7 +172,7 @@ obs_prepareNetA <- function(obsN, fc_time, e=NULL, lsm=NULL,grid=NULL) {
 obs_prepare <- function(obs, fc_time, e=NULL, lsm=NULL) {
   # convert to MEPS coordinate system
   obsx <- spTransform(obs,crs.lambert)
-  obsx <- obsx[obsx$time==fc_time,] # select ftime only
+  #obsx <- obsx[obsx$time==fc_time,] # select ftime only
   obsx$VAR1 <- obsx$observation # name has to match that of the FC field
   obsx <- obsx[complete.cases(obsx$VAR1),] # remove NaN values
   # crop needs the raster package
@@ -180,3 +184,4 @@ obs_prepare <- function(obs, fc_time, e=NULL, lsm=NULL) {
     obsx$lsm <- grid2points(lsm,obsx,method='nearest',variable='lsm')
   return(obsx)
 }
+
